@@ -149,43 +149,66 @@ app.get('/api/messages', authenticateToken, async (req, res) => {
 
 // --- REAL-TIME LOGIC ---
 
-const users = {}; // Map email to socket id
+const users = {}; // Map email -> Array of socket IDs
 
 io.on('connection', (socket) => {
     console.log('User connected:', socket.id);
 
     socket.on('identify', (email) => {
-        users[email] = socket.id;
-        console.log(`${email} identified with socket ${socket.id}`);
-        // Broadcast online users
+        const normalizedEmail = email.toLowerCase();
+        if (!users[normalizedEmail]) users[normalizedEmail] = [];
+        if (!users[normalizedEmail].includes(socket.id)) {
+            users[normalizedEmail].push(socket.id);
+        }
+        console.log(`${normalizedEmail} identified with socket ${socket.id} (Total: ${users[normalizedEmail].length})`);
+
+        // Broadcast all unique online emails
         io.emit('update_user_list', Object.keys(users));
     });
 
     socket.on('send_message', async (data) => {
         const { sender, recipient, body } = data;
+        const normSender = sender.toLowerCase();
+        const normRecipient = recipient.toLowerCase();
+
+        console.log(`Msg: ${normSender} -> ${normRecipient}: ${body.substring(0, 20)}...`);
 
         try {
-            await pool.query(
-                'INSERT INTO messages (sender, recipient, body) VALUES ($1, $2, $3)',
-                [sender, recipient, body]
+            const result = await pool.query(
+                'INSERT INTO messages (sender, recipient, body) VALUES ($1, $2, $3) RETURNING id, timestamp',
+                [normSender, normRecipient, body]
             );
+            const savedMsg = { ...data, id: result.rows[0].id, timestamp: result.rows[0].timestamp };
 
-            if (users[recipient]) {
-                io.to(users[recipient]).emit('receive_message', { sender, body, timestamp: new Date() });
+            // Send to recipient (all their sockets)
+            if (users[normRecipient]) {
+                users[normRecipient].forEach(sid => {
+                    io.to(sid).emit('receive_message', savedMsg);
+                });
+            }
+
+            // Send back to sender (all their sockets except current one maybe, or just all for simplicity)
+            if (users[normSender]) {
+                users[normSender].forEach(sid => {
+                    if (sid !== socket.id) { // Don't send back to the originating socket to avoid double display in some UI logic
+                        io.to(sid).emit('receive_message', savedMsg);
+                    }
+                });
             }
         } catch (err) {
-            console.error('DB error:', err);
+            console.error('DB error during send_message:', err);
         }
     });
 
     socket.on('disconnect', () => {
+        console.log('User disconnected:', socket.id);
         for (let email in users) {
-            if (users[email] === socket.id) {
+            users[email] = users[email].filter(id => id !== socket.id);
+            if (users[email].length === 0) {
                 delete users[email];
-                io.emit('update_user_list', Object.keys(users));
-                break;
             }
         }
+        io.emit('update_user_list', Object.keys(users));
     });
 });
 

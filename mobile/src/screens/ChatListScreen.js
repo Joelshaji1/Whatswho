@@ -15,24 +15,43 @@ export default function ChatListScreen({ navigation }) {
 
     const setup = async () => {
         const userEmail = await AsyncStorage.getItem('email');
-        setEmail(userEmail);
+        const normalizedEmail = userEmail?.toLowerCase();
+        setEmail(normalizedEmail);
 
         // Re-init socket if needed to get online users
-        initiateSocketConnection(userEmail);
+        initiateSocketConnection(normalizedEmail);
 
         subscribeToUserList((err, users) => {
             setOnlineUsers(users);
         });
 
-        loadData(userEmail);
+        // Subscribe to messages live so list updates immediately
+        api.subscribeToMessages((err, msg) => {
+            loadData(normalizedEmail);
+        });
+
+        loadData(normalizedEmail);
     };
+
+    // Refresh when screen comes back into focus
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            if (email) loadData(email);
+        });
+        return unsubscribe;
+    }, [navigation, email]);
 
     const loadData = async (userEmail) => {
         try {
+            console.log('Loading chat list data for:', userEmail);
             const response = await api.get('/api/messages');
             const messages = response.data;
-            // Get unique contacts and their last message (simulated)
+
+            // Get unique contacts and their LATEST message
             const contactsMap = new Map();
+
+            // Sort messages by timestamp descending to easily find latest
+            messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
             messages.forEach(m => {
                 const partner = m.sender === userEmail ? m.recipient : m.sender;
@@ -42,13 +61,16 @@ export default function ChatListScreen({ navigation }) {
                         name: partner,
                         lastMsg: m.body,
                         time: new Date(m.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                        rawTime: new Date(m.timestamp)
                     });
                 }
             });
 
-            setHistory(Array.from(contactsMap.values()));
+            // Convert to array and sort the list so recent chats are on top
+            const sortedList = Array.from(contactsMap.values()).sort((a, b) => b.rawTime - a.rawTime);
+            setHistory(sortedList);
         } catch (error) {
-            console.error(error);
+            console.error('ChatList load error:', error);
         }
     };
 

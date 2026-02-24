@@ -18,28 +18,35 @@ export default function ChatRoomScreen({ route, navigation }) {
 
     const setup = async () => {
         const userEmail = await AsyncStorage.getItem('email');
-        setEmail(userEmail);
-        initiateSocketConnection(userEmail);
+        const normalizedMyEmail = userEmail?.toLowerCase();
+        const normalizedRecipient = recipient?.toLowerCase();
+
+        setEmail(normalizedMyEmail);
+        initiateSocketConnection(normalizedMyEmail);
 
         subscribeToUserList((err, users) => {
-            setIsOnline(users.includes(recipient));
+            setIsOnline(users.includes(normalizedRecipient));
         });
 
         // Load history
         try {
             const response = await api.get('/api/messages');
             const filtered = response.data.filter(m =>
-                (m.sender === userEmail && m.recipient === recipient) ||
-                (m.sender === recipient && m.recipient === userEmail)
+                (m.sender.toLowerCase() === normalizedMyEmail && m.recipient.toLowerCase() === normalizedRecipient) ||
+                (m.sender.toLowerCase() === normalizedRecipient && m.recipient.toLowerCase() === normalizedMyEmail)
             );
             setMessages(filtered);
         } catch (error) {
-            console.error(error);
+            console.error('ChatRoom load error:', error);
         }
 
         // Subscribe to new messages
         subscribeToMessages((err, msg) => {
-            if (msg.sender === recipient || msg.sender === userEmail) {
+            const msgSender = msg.sender.toLowerCase();
+            const msgRecipient = msg.recipient.toLowerCase();
+
+            if ((msgSender === normalizedRecipient && msgRecipient === normalizedMyEmail) ||
+                (msgSender === normalizedMyEmail && msgRecipient === normalizedRecipient)) {
                 setMessages(prev => [...prev, msg]);
             }
         });
