@@ -49,7 +49,7 @@ export default function LoginScreen({ navigation }) {
         try {
             const response = await verifyOtp(email, otp);
             await AsyncStorage.setItem('token', response.data.token);
-            await AsyncStorage.setItem('email', response.data.email);
+            await AsyncStorage.setItem('email', response.data.email.toLowerCase());
             navigation.replace('ChatList');
         } catch (error) {
             const msg = error.response?.data?.message || 'Invalid code';
@@ -84,7 +84,7 @@ export default function LoginScreen({ navigation }) {
                                 placeholder="name@company.com"
                                 placeholderTextColor="#8696a0"
                                 value={email}
-                                onChangeText={setEmail}
+                                onChangeText={(text) => setEmail(text.toLowerCase())}
                                 autoCapitalize="none"
                                 keyboardType="email-address"
                             />

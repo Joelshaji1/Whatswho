@@ -281,7 +281,7 @@ const styles = StyleSheet.create({
         fontSize: 10,
     },
     readTicks: {
-        color: '#53bdeb',
+        color: '#8696a0', // Gray ticks by default (Sent/Delivered)
         fontSize: 10,
         marginLeft: 4,
         fontWeight: 'bold',

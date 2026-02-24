@@ -56,7 +56,11 @@ export default function ChatListScreen({ navigation }) {
             messages.sort((a, b) => new Date(b.timestamp) - new Date(a.timestamp));
 
             messages.forEach(m => {
-                const partner = m.sender === userEmail ? m.recipient : m.sender;
+                const normSender = m.sender.toLowerCase();
+                const normRecipient = m.recipient.toLowerCase();
+                const normMe = userEmail.toLowerCase();
+
+                const partner = normSender === normMe ? normRecipient : normSender;
                 if (!contactsMap.has(partner)) {
                     contactsMap.set(partner, {
                         id: partner,

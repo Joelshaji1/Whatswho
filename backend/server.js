@@ -125,8 +125,9 @@ app.post('/api/auth/verify-otp', async (req, res) => {
         // Clear OTP after success
         await pool.query('UPDATE users SET otp_code = NULL WHERE id = $1', [user.id]);
 
-        const token = jwt.sign({ id: user.id, email: user.email }, process.env.JWT_SECRET || 'your_super_secret_key');
-        res.json({ token, email: user.email });
+        // Send token with lowercased email for consistency
+        const token = jwt.sign({ id: user.id, email: user.email.toLowerCase() }, process.env.JWT_SECRET || 'your_super_secret_key');
+        res.json({ token, email: user.email.toLowerCase() });
     } catch (err) {
         console.error('Verify Error:', err);
         res.status(500).json({ error: err.message });
@@ -137,10 +138,10 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 app.get('/api/messages', authenticateToken, async (req, res) => {
     try {
-        console.log(`[DB] Fetching messages for: ${req.user.email}`);
+        const normalizedEmail = req.user.email.toLowerCase();
         const result = await pool.query(
-            'SELECT * FROM messages WHERE sender = $1 OR recipient = $1 ORDER BY timestamp ASC',
-            [req.user.email]
+            'SELECT * FROM messages WHERE LOWER(sender) = $1 OR LOWER(recipient) = $1 ORDER BY timestamp ASC',
+            [normalizedEmail]
         );
         console.log(`[DB] Found ${result.rows.length} messages for ${req.user.email}`);
         res.json(result.rows);
