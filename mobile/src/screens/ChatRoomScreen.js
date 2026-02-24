@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ImageBackground } from 'react-native';
-import api, { sendMessage, subscribeToMessages, initiateSocketConnection, disconnectSocket, subscribeToUserList } from '../services/api';
+import { StyleSheet, Text, View, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ImageBackground, Alert } from 'react-native';
+import api, { sendMessage, subscribeToMessages, initiateSocketConnection, disconnectSocket, subscribeToUserList, markMessagesAsRead, deleteMessage, subscribeToReadReceipts, subscribeToDeleteEvents } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ChatRoomScreen({ route, navigation }) {
@@ -24,20 +24,39 @@ export default function ChatRoomScreen({ route, navigation }) {
         setEmail(normalizedMyEmail);
         initiateSocketConnection(normalizedMyEmail);
 
+        // Mark existing messages as read
+        markMessagesAsRead(normalizedRecipient);
+
         subscribeToUserList((err, users) => {
             setIsOnline(users.includes(normalizedRecipient));
+        });
+
+        // Subscribe to read receipts
+        subscribeToReadReceipts((err, data) => {
+            if (data.reader === normalizedRecipient) {
+                setMessages(prev => prev.map(m => ({ ...m, is_read: true })));
+            }
+        });
+
+        // Subscribe to deletion events
+        subscribeToDeleteEvents((err, data) => {
+            if (data.mode === 'everyone') {
+                setMessages(prev => prev.map(m => m.id === data.id ? { ...m, is_deleted_everyone: true, body: 'This message was deleted' } : m));
+            }
         });
 
         // Load history
         try {
             const response = await api.get('/api/messages');
-            const filtered = response.data.filter(m =>
-                (m.sender.toLowerCase() === normalizedMyEmail && m.recipient.toLowerCase() === normalizedRecipient) ||
-                (m.sender.toLowerCase() === normalizedRecipient && m.recipient.toLowerCase() === normalizedMyEmail)
-            );
-            setMessages(filtered);
+            const history = response.data.filter(m => {
+                const mSender = m.sender.toLowerCase();
+                const mRecipient = m.recipient.toLowerCase();
+                return (mSender === normalizedMyEmail && mRecipient === normalizedRecipient) ||
+                    (mSender === normalizedRecipient && mRecipient === normalizedMyEmail);
+            });
+            setMessages(history);
         } catch (error) {
-            console.error('ChatRoom load error:', error);
+            console.error('History Error:', error);
         }
 
         // Subscribe to new messages
@@ -47,8 +66,13 @@ export default function ChatRoomScreen({ route, navigation }) {
 
             if ((msgSender === normalizedRecipient && msgRecipient === normalizedMyEmail) ||
                 (msgSender === normalizedMyEmail && msgRecipient === normalizedRecipient)) {
+
+                // If we received a message from recipient while in this screen, mark it as read immediately
+                if (msgSender === normalizedRecipient) {
+                    markMessagesAsRead(normalizedRecipient);
+                }
+
                 setMessages(prev => {
-                    // avoid duplicates
                     if (prev.find(m => m.id === msg.id)) return prev;
                     return [...prev, msg];
                 });
@@ -90,31 +114,83 @@ export default function ChatRoomScreen({ route, navigation }) {
         }
     };
 
+    const handleLongPress = (message) => {
+        const options = [];
+        if (message.sender === email) {
+            options.push({
+                text: 'Delete for Everyone',
+                onPress: () => processDeletion(message.id, 'everyone'),
+                style: 'destructive'
+            });
+        }
+        options.push({
+            text: 'Delete for Me',
+            onPress: () => processDeletion(message.id, 'me'),
+            style: 'destructive'
+        });
+        options.push({ text: 'Cancel', style: 'cancel' });
+
+        if (Platform.OS === 'web') {
+            const choice = confirm('Delete message?\n' + (message.sender === email ? '1. Delete for everyone\n2. Delete for me' : '1. Delete for me'));
+            if (choice) {
+                // Simplified web confirmation
+                processDeletion(message.id, message.sender === email ? 'everyone' : 'me');
+            }
+        } else {
+            Alert.alert('Message Options', 'Select an action', options);
+        }
+    };
+
+    const processDeletion = async (id, mode) => {
+        try {
+            await deleteMessage(id, mode);
+            if (mode === 'me') {
+                setMessages(prev => prev.filter(m => m.id !== id));
+            }
+            // 'everyone' is handled by socket listener
+        } catch (error) {
+            console.error('Deletion failed:', error);
+            alert('Could not delete message.');
+        }
+    };
+
     const renderMessage = ({ item, index }) => {
         const isMe = item.sender === email;
         const prevMsg = index > 0 ? messages[index - 1] : null;
         const isFirstInGroup = !prevMsg || prevMsg.sender !== item.sender;
 
         return (
-            <View style={[
-                styles.messageContainer,
-                isMe ? styles.myMessageContainer : styles.theirMessageContainer,
-                isFirstInGroup && { marginTop: 12 }
-            ]}>
+            <TouchableOpacity
+                activeOpacity={0.7}
+                onLongPress={() => handleLongPress(item)}
+                style={[
+                    styles.messageContainer,
+                    isMe ? styles.myMessageContainer : styles.theirMessageContainer,
+                    isFirstInGroup && { marginTop: 12 }
+                ]}
+            >
                 <View style={[
                     styles.bubble,
                     isMe ? styles.myBubble : styles.theirBubble,
-                    isFirstInGroup && (isMe ? styles.myTail : styles.theirTail)
+                    isFirstInGroup && (isMe ? styles.myTail : styles.theirTail),
+                    item.is_deleted_everyone && styles.deletedBubble
                 ]}>
-                    <Text style={styles.messageText}>{item.body}</Text>
+                    <Text style={[
+                        styles.messageText,
+                        item.is_deleted_everyone && styles.deletedText
+                    ]}>
+                        {item.body}
+                    </Text>
                     <View style={styles.messageDetails}>
                         <Text style={styles.timeText}>
                             {new Date(item.timestamp).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
                         </Text>
-                        {isMe && <Text style={styles.readTicks}>✓✓</Text>}
+                        {isMe && !item.is_deleted_everyone && (
+                            <Text style={[styles.readTicks, item.is_read && styles.readTicksBlue]}>✓✓</Text>
+                        )}
                     </View>
                 </View>
-            </View>
+            </TouchableOpacity>
         );
     };
 
@@ -308,6 +384,18 @@ const styles = StyleSheet.create({
         fontSize: 10,
         marginLeft: 4,
         fontWeight: 'bold',
+    },
+    readTicksBlue: {
+        color: '#53bdeb', // Blue ticks for read
+    },
+    deletedBubble: {
+        backgroundColor: 'rgba(0,0,0,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(0,0,0,0.1)',
+    },
+    deletedText: {
+        fontStyle: 'italic',
+        color: '#8696a0',
     },
     inputSection: {
         flexDirection: 'row',

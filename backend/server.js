@@ -162,7 +162,10 @@ async function handleOutgoingMessage(data, socketSource = null) {
         id: result.rows[0].id,
         timestamp: result.rows[0].timestamp,
         sender: normSender,
-        recipient: normRecipient
+        recipient: normRecipient,
+        is_read: false,
+        is_deleted_everyone: false,
+        deleted_for: []
     };
 
     // Broadcast to recipient
@@ -187,11 +190,74 @@ async function handleOutgoingMessage(data, socketSource = null) {
 app.get('/api/messages', authenticateToken, async (req, res) => {
     try {
         const normalizedEmail = req.user.email.toLowerCase();
+        // Return messages that are NOT deleted for this specific user
         const result = await pool.query(
-            'SELECT * FROM messages WHERE LOWER(sender) = $1 OR LOWER(recipient) = $1 ORDER BY timestamp ASC',
-            [normalizedEmail]
+            'SELECT * FROM messages WHERE (LOWER(sender) = $1 OR LOWER(recipient) = $1) AND NOT ($2 = ANY(deleted_for)) ORDER BY timestamp ASC',
+            [normalizedEmail, normalizedEmail]
         );
         res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/messages/read', authenticateToken, async (req, res) => {
+    try {
+        const { sender } = req.body; // The person whose messages are being read
+        const myEmail = req.user.email.toLowerCase();
+        const senderEmail = sender.toLowerCase();
+
+        await pool.query(
+            'UPDATE messages SET is_read = TRUE WHERE LOWER(sender) = $1 AND LOWER(recipient) = $2 AND is_read = FALSE',
+            [senderEmail, myEmail]
+        );
+
+        // Notify the sender that their messages were read
+        if (users[senderEmail]) {
+            users[senderEmail].forEach(sid => {
+                io.to(sid).emit('message_read', { reader: myEmail });
+            });
+        }
+
+        res.json({ success: true });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.delete('/api/messages/:id', authenticateToken, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { mode } = req.body; // 'me' or 'everyone'
+        const myEmail = req.user.email.toLowerCase();
+
+        const msgCheck = await pool.query('SELECT * FROM messages WHERE id = $1', [id]);
+        if (msgCheck.rows.length === 0) return res.status(404).json({ error: 'Message not found' });
+
+        const msg = msgCheck.rows[0];
+
+        if (mode === 'everyone') {
+            if (msg.sender.toLowerCase() !== myEmail) {
+                return res.status(403).json({ error: 'Only the sender can delete for everyone' });
+            }
+            await pool.query('UPDATE messages SET is_deleted_everyone = TRUE, body = \'This message was deleted\' WHERE id = $1', [id]);
+
+            // Broadcast to both parties
+            [msg.sender.toLowerCase(), msg.recipient.toLowerCase()].forEach(email => {
+                if (users[email]) {
+                    users[email].forEach(sid => {
+                        io.to(sid).emit('message_deleted', { id, mode: 'everyone' });
+                    });
+                }
+            });
+        } else {
+            // Delete only for me
+            await pool.query('UPDATE messages SET deleted_for = array_append(deleted_for, $1) WHERE id = $1', [myEmail, id]);
+            res.json({ success: true, mode: 'me' });
+            return;
+        }
+
+        res.json({ success: true, mode });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }

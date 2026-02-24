@@ -98,18 +98,49 @@ export const subscribeToUserList = (cb) => {
 
 export const sendMessage = async (data) => {
     try {
-        // Use REST for persistence (more reliable for saving)
         const response = await api.post('/api/messages', data);
-        console.log('[API] Message saved via REST');
         return response.data;
     } catch (err) {
         console.error('[API] Send error:', err.message);
-        // Fallback to socket if REST fails? Or just throw
-        if (socket?.connected) {
-            socket.emit('send_message', data);
-        }
+        if (socket?.connected) socket.emit('send_message', data);
         throw err;
     }
+};
+
+export const markMessagesAsRead = async (senderEmail) => {
+    try {
+        await api.post('/api/messages/read', { sender: senderEmail });
+    } catch (err) {
+        console.error('[API] Mark read error:', err.message);
+    }
+};
+
+export const deleteMessage = async (messageId, mode) => {
+    try {
+        const response = await api.delete(`/api/messages/${messageId}`, { data: { mode } });
+        return response.data;
+    } catch (err) {
+        console.error('[API] Delete error:', err.message);
+        throw err;
+    }
+};
+
+export const subscribeToReadReceipts = (cb) => {
+    if (!socket) return;
+    socket.off('message_read');
+    socket.on('message_read', (data) => {
+        console.log('[Socket] Read receipt received:', data);
+        cb(null, data);
+    });
+};
+
+export const subscribeToDeleteEvents = (cb) => {
+    if (!socket) return;
+    socket.off('message_deleted');
+    socket.on('message_deleted', (data) => {
+        console.log('[Socket] Message deleted:', data);
+        cb(null, data);
+    });
 };
 
 export default api;
