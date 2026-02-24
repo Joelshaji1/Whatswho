@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, TextInput, Platform, Image } from 'react-native';
-import api, { subscribeToUserList, initiateSocketConnection, subscribeToMessages } from '../services/api';
+import api, { subscribeToUserList, initiateSocketConnection, subscribeToMessages, getUsersInfo } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ChatListScreen({ navigation }) {
@@ -74,6 +74,20 @@ export default function ChatListScreen({ navigation }) {
 
             // Convert to array and sort the list so recent chats are on top
             const sortedList = Array.from(contactsMap.values()).sort((a, b) => b.rawTime - a.rawTime);
+
+            // Fetch nicknames and images for these contacts
+            if (sortedList.length > 0) {
+                const emails = sortedList.map(c => c.id);
+                const profiles = await getUsersInfo(emails);
+                profiles.forEach(p => {
+                    const match = sortedList.find(c => c.id === p.email.toLowerCase());
+                    if (match) {
+                        match.name = p.nickname || match.id;
+                        match.profile_image = p.profile_image;
+                    }
+                });
+            }
+
             setHistory(sortedList);
         } catch (error) {
             console.error('ChatList load error:', error);
@@ -95,8 +109,12 @@ export default function ChatListScreen({ navigation }) {
                 onPress={() => navigation.navigate('ChatRoom', { recipient: item.name })}
             >
                 <View style={styles.avatarContainer}>
-                    <View style={[styles.avatar, { backgroundColor: getAvatarColor(item.name) }]}>
-                        <Text style={styles.avatarText}>{item.name[0].toUpperCase()}</Text>
+                    <View style={[styles.avatar, !item.profile_image && { backgroundColor: getAvatarColor(item.id) }]}>
+                        {item.profile_image ? (
+                            <Image source={{ uri: item.profile_image }} style={styles.avatarImg} />
+                        ) : (
+                            <Text style={styles.avatarText}>{item.name[0].toUpperCase()}</Text>
+                        )}
                     </View>
                     {isOnline && <View style={styles.onlineBadge} />}
                 </View>
@@ -120,8 +138,8 @@ export default function ChatListScreen({ navigation }) {
                 <View style={styles.headerIcons}>
                     <TouchableOpacity style={styles.iconBtn}><Text style={styles.navIcon}>📷</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.iconBtn}><Text style={styles.navIcon}>🔍</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.iconBtn}>
-                        <View style={styles.menuDot} /><View style={styles.menuDot} /><View style={styles.menuDot} />
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => navigation.navigate('Profile')}>
+                        <Text style={styles.navIcon}>⚙️</Text>
                     </TouchableOpacity>
                 </View>
             </View>
@@ -253,6 +271,11 @@ const styles = StyleSheet.create({
         borderRadius: 26,
         justifyContent: 'center',
         alignItems: 'center',
+        overflow: 'hidden',
+    },
+    avatarImg: {
+        width: '100%',
+        height: '100%',
     },
     avatarText: {
         color: '#fff',

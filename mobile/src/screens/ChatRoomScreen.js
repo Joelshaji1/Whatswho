@@ -1,7 +1,8 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { StyleSheet, Text, View, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ImageBackground, Alert } from 'react-native';
-import api, { sendMessage, subscribeToMessages, initiateSocketConnection, disconnectSocket, subscribeToUserList, markMessagesAsRead, deleteMessage, subscribeToReadReceipts, subscribeToDeleteEvents } from '../services/api';
+import api, { sendMessage, subscribeToMessages, initiateSocketConnection, disconnectSocket, subscribeToUserList, markMessagesAsRead, deleteMessage, subscribeToReadReceipts, subscribeToDeleteEvents, getUsersInfo } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import DeleteModal from '../components/DeleteModal';
 
 export default function ChatRoomScreen({ route, navigation }) {
     const { recipient } = route.params;
@@ -9,6 +10,9 @@ export default function ChatRoomScreen({ route, navigation }) {
     const [inputText, setInputText] = useState('');
     const [email, setEmail] = useState('');
     const [isOnline, setIsOnline] = useState(false);
+    const [recipientProfile, setRecipientProfile] = useState({ nickname: recipient, profile_image: '' });
+    const [selectedMessage, setSelectedMessage] = useState(null);
+    const [modalVisible, setModalVisible] = useState(false);
     const flatListRef = useRef();
 
     useEffect(() => {
@@ -44,6 +48,16 @@ export default function ChatRoomScreen({ route, navigation }) {
                 setMessages(prev => prev.map(m => m.id === data.id ? { ...m, is_deleted_everyone: true, body: 'This message was deleted' } : m));
             }
         });
+
+        // Load recipient profile
+        try {
+            const profiles = await getUsersInfo([normalizedRecipient]);
+            if (profiles.length > 0) {
+                setRecipientProfile(profiles[0]);
+            }
+        } catch (err) {
+            console.error('Profile fetch error:', err);
+        }
 
         // Load history
         try {
@@ -115,39 +129,22 @@ export default function ChatRoomScreen({ route, navigation }) {
     };
 
     const handleLongPress = (message) => {
-        const options = [];
-        if (message.sender === email) {
-            options.push({
-                text: 'Delete for Everyone',
-                onPress: () => processDeletion(message.id, 'everyone'),
-                style: 'destructive'
-            });
-        }
-        options.push({
-            text: 'Delete for Me',
-            onPress: () => processDeletion(message.id, 'me'),
-            style: 'destructive'
-        });
-        options.push({ text: 'Cancel', style: 'cancel' });
-
-        if (Platform.OS === 'web') {
-            const choice = confirm('Delete message?\n' + (message.sender === email ? '1. Delete for everyone\n2. Delete for me' : '1. Delete for me'));
-            if (choice) {
-                // Simplified web confirmation
-                processDeletion(message.id, message.sender === email ? 'everyone' : 'me');
-            }
-        } else {
-            Alert.alert('Message Options', 'Select an action', options);
-        }
+        if (message.is_deleted_everyone) return;
+        setSelectedMessage(message);
+        setModalVisible(true);
     };
 
-    const processDeletion = async (id, mode) => {
+    const processDeletion = async (mode) => {
+        if (!selectedMessage) return;
+        const id = selectedMessage.id;
         try {
             await deleteMessage(id, mode);
             if (mode === 'me') {
                 setMessages(prev => prev.filter(m => m.id !== id));
             }
             // 'everyone' is handled by socket listener
+            setModalVisible(false);
+            setSelectedMessage(null);
         } catch (error) {
             console.error('Deletion failed:', error);
             alert('Could not delete message.');
@@ -201,10 +198,14 @@ export default function ChatRoomScreen({ route, navigation }) {
                     <Text style={styles.backBtnText}>←</Text>
                 </TouchableOpacity>
                 <View style={styles.avatar}>
-                    <Text style={styles.avatarText}>{recipient[0].toUpperCase()}</Text>
+                    {recipientProfile.profile_image ? (
+                        <Image source={{ uri: recipientProfile.profile_image }} style={styles.headerAvatarImg} />
+                    ) : (
+                        <Text style={styles.avatarText}>{(recipientProfile.nickname || recipient)[0].toUpperCase()}</Text>
+                    )}
                 </View>
                 <View style={styles.headerInfo}>
-                    <Text style={styles.headerName} numberOfLines={1}>{recipient}</Text>
+                    <Text style={styles.headerName} numberOfLines={1}>{recipientProfile.nickname || recipient}</Text>
                     {isOnline && <Text style={styles.headerStatus}>online</Text>}
                 </View>
                 <View style={styles.headerIcons}>
@@ -258,6 +259,14 @@ export default function ChatRoomScreen({ route, navigation }) {
                     </TouchableOpacity>
                 </View>
             </KeyboardAvoidingView>
+
+            <DeleteModal
+                visible={modalVisible}
+                onClose={() => setModalVisible(false)}
+                onDeleteForMe={() => processDeletion('me')}
+                onDeleteForEveryone={() => processDeletion('everyone')}
+                isMe={selectedMessage?.sender === email}
+            />
         </SafeAreaView>
     );
 }
@@ -266,6 +275,11 @@ const styles = StyleSheet.create({
     container: {
         flex: 1,
         backgroundColor: '#0b141a',
+    },
+    headerAvatarImg: {
+        width: '100%',
+        height: '100%',
+        borderRadius: 18,
     },
     header: {
         flexDirection: 'row',

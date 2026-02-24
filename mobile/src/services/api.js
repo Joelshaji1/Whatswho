@@ -143,4 +143,24 @@ export const subscribeToDeleteEvents = (cb) => {
     });
 };
 
+export const updateProfile = async (data) => {
+    try {
+        const response = await api.put('/api/user/profile', data);
+        return response.data;
+    } catch (err) {
+        console.error('[API] Profile update error:', err.message);
+        throw err;
+    }
+};
+
+export const getUsersInfo = async (emails) => {
+    try {
+        const response = await api.get(`/api/users/info?emails=${emails.join(',')}`);
+        return response.data;
+    } catch (err) {
+        console.error('[API] Users info error:', err.message);
+        return [];
+    }
+};
+
 export default api;

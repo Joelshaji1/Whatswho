@@ -252,12 +252,44 @@ app.delete('/api/messages/:id', authenticateToken, async (req, res) => {
             });
         } else {
             // Delete only for me
-            await pool.query('UPDATE messages SET deleted_for = array_append(deleted_for, $1) WHERE id = $1', [myEmail, id]);
+            await pool.query('UPDATE messages SET deleted_for = array_append(deleted_for, $1) WHERE id = $2', [myEmail, id]);
             res.json({ success: true, mode: 'me' });
             return;
         }
 
         res.json({ success: true, mode });
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.get('/api/users/info', authenticateToken, async (req, res) => {
+    try {
+        const { emails } = req.query; // Comma separated list
+        if (!emails) return res.json([]);
+        const emailList = emails.split(',').map(e => e.toLowerCase());
+
+        const result = await pool.query(
+            'SELECT email, nickname, profile_image FROM users WHERE email = ANY($1)',
+            [emailList]
+        );
+        res.json(result.rows);
+    } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.put('/api/user/profile', authenticateToken, async (req, res) => {
+    try {
+        const { nickname, profile_image } = req.body;
+        const myEmail = req.user.email.toLowerCase();
+
+        await pool.query(
+            'UPDATE users SET nickname = COALESCE($1, nickname), profile_image = COALESCE($2, profile_image) WHERE LOWER(email) = $3',
+            [nickname, profile_image, myEmail]
+        );
+
+        res.json({ success: true });
     } catch (err) {
         res.status(500).json({ error: err.message });
     }
