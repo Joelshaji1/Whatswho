@@ -5,7 +5,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { Platform } from 'react-native';
 
 const DEV_URL = Platform.OS === 'web' ? 'http://localhost:4000' : 'http://192.168.29.66:4000';
-const PROD_URL = 'https://your-backend-name.onrender.com'; // Change this after deploying to Render
+const PROD_URL = 'https://whatswho.onrender.com'; // Live Render Backend
 
 const API_URL = __DEV__ ? DEV_URL : PROD_URL;
 
