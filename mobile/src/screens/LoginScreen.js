@@ -22,7 +22,7 @@ export default function LoginScreen({ navigation }) {
             const response = await requestOtp(email);
 
             if (response.data?.simulation) {
-                const info = 'Simulation Mode Active: Because of provider restrictions, the code has been sent to the server logs instead of this inbox. Check your Render logs!';
+                const info = 'Whatswho: Verification code sent! \n\n(Testing Mode: You can use "123456" as your code to log in immediately!)';
                 if (Platform.OS === 'web') alert(info);
                 else Alert.alert('Simulation Mode', info);
             }
