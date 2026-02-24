@@ -1,0 +1,16 @@
+# Node
+node_modules/
+dist/
+.env
+
+# Expo
+.expo/
+web-build/
+
+# IDE
+.vscode/
+.idea/
+
+# System
+Thumbs.db
+.DS_Store
