@@ -19,7 +19,14 @@ export default function LoginScreen({ navigation }) {
         setLoading(true);
         try {
             console.log('Requesting OTP for:', email);
-            await requestOtp(email);
+            const response = await requestOtp(email);
+
+            if (response.data?.simulation) {
+                const info = 'Simulation Mode Active: Because of provider restrictions, the code has been sent to the server logs instead of this inbox. Check your Render logs!';
+                if (Platform.OS === 'web') alert(info);
+                else Alert.alert('Simulation Mode', info);
+            }
+
             setStep(2);
         } catch (error) {
             console.error('OTP Request Error:', error);
