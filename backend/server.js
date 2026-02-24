@@ -24,6 +24,12 @@ const resend = new Resend(process.env.RESEND_API_KEY);
 app.use(cors());
 app.use(express.json());
 
+// Request Logger Middleware
+app.use((req, res, next) => {
+    console.log(`[HTTP] ${req.method} ${req.url} - ${new Date().toISOString()}`);
+    next();
+});
+
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
 });
@@ -137,10 +143,14 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 // Helper to handle message saving and broadcasting
 async function handleOutgoingMessage(data, socketSource = null) {
     const { sender, recipient, body } = data;
-    if (!sender || !recipient || !body) throw new Error('Missing message fields');
 
-    const normSender = sender.toLowerCase();
-    const normRecipient = recipient.toLowerCase();
+    if (!sender || !recipient || !body) {
+        console.warn('[DB] Rejected: Missing fields', { sender, recipient, body });
+        throw new Error('Missing message fields (sender, recipient, or body)');
+    }
+
+    const normSender = sender.toString().toLowerCase();
+    const normRecipient = recipient.toString().toLowerCase();
 
     const result = await pool.query(
         'INSERT INTO messages (sender, recipient, body) VALUES ($1, $2, $3) RETURNING id, timestamp',
@@ -189,14 +199,24 @@ app.get('/api/messages', authenticateToken, async (req, res) => {
 
 app.post('/api/messages', authenticateToken, async (req, res) => {
     try {
-        // Ensure sender matches the token for security
-        if (req.body.sender.toLowerCase() !== req.user.email.toLowerCase()) {
-            return res.status(403).json({ error: 'Sender mismatch' });
+        const { sender } = req.body;
+        if (!sender) {
+            return res.status(400).json({ error: 'Sender field is required' });
         }
+
+        const userEmail = req.user.email.toLowerCase();
+        const senderEmail = sender.toLowerCase();
+
+        // Ensure sender matches the token for security
+        if (senderEmail !== userEmail) {
+            console.warn(`[API] Sender mismatch: ${senderEmail} vs ${userEmail}`);
+            return res.status(403).json({ error: `Sender mismatch: ${senderEmail} vs ${userEmail}` });
+        }
+
         const savedMsg = await handleOutgoingMessage(req.body);
         res.json(savedMsg);
     } catch (err) {
-        console.error('[API] Message send error:', err);
+        console.error('[API] Message send error:', err.message);
         res.status(500).json({ error: err.message });
     }
 });

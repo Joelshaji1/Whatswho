@@ -72,15 +72,20 @@ export default function ChatRoomScreen({ route, navigation }) {
             setInputText('');
 
             try {
-                console.log(`[UI] Sending message via REST...`);
+                if (!recipient) throw new Error('Recipient is missing');
+                console.log(`[UI] Sending message via REST to ${recipient}...`);
                 const savedMsg = await sendMessage(msgData);
                 // Replace temp message with the real one from server
                 setMessages(prev => prev.map(m => m.id === tempId ? savedMsg : m));
             } catch (error) {
                 console.error('[UI] Send failed:', error);
+                const errorDetail = error.response?.data?.error || error.message || 'Unknown error';
                 // Mark temp message as failed or remove it
                 setMessages(prev => prev.filter(m => m.id !== tempId));
-                alert('Message failed to send. Please check your connection.');
+
+                const alertMsg = `Message failed: ${errorDetail}\n\nPlease try refreshing the app.`;
+                if (Platform.OS === 'web') alert(alertMsg);
+                else Alert.alert('Send Error', alertMsg);
             }
         }
     };
