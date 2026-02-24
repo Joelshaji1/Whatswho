@@ -56,7 +56,7 @@ export default function ChatRoomScreen({ route, navigation }) {
         if (inputText.trim()) {
             const msgData = {
                 sender: email,
-                recipient,
+                recipient: recipient.toLowerCase(),
                 body: inputText,
                 timestamp: new Date().toISOString()
             };
