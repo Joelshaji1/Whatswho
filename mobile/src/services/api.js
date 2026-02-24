@@ -163,4 +163,32 @@ export const getUsersInfo = async (emails) => {
     }
 };
 
+// --- CALLING LOGIC ---
+
+export const initiateCall = (to, from, isVideo) => {
+    if (!socket) return;
+    socket.emit('call_init', { to, from, isVideo });
+};
+
+export const answerCall = (to, from, accepted) => {
+    if (!socket) return;
+    socket.emit('call_ans', { to, from, accepted });
+};
+
+export const endCall = (to, from) => {
+    if (!socket) return;
+    socket.emit('call_end', { to, from });
+};
+
+export const subscribeToCalls = (onIncoming, onResponse, onCompleted) => {
+    if (!socket) return;
+    socket.off('incoming_call');
+    socket.off('call_response');
+    socket.off('call_completed');
+
+    socket.on('incoming_call', (data) => onIncoming(data));
+    socket.on('call_response', (data) => onResponse(data));
+    socket.on('call_completed', (data) => onCompleted(data));
+};
+
 export default api;

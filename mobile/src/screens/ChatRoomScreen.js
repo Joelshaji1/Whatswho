@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { StyleSheet, Text, View, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ImageBackground, Alert } from 'react-native';
-import api, { sendMessage, subscribeToMessages, initiateSocketConnection, disconnectSocket, subscribeToUserList, markMessagesAsRead, deleteMessage, subscribeToReadReceipts, subscribeToDeleteEvents, getUsersInfo } from '../services/api';
+import { StyleSheet, Text, View, FlatList, TextInput, TouchableOpacity, KeyboardAvoidingView, Platform, SafeAreaView, ImageBackground, Alert, Image } from 'react-native';
+import api, { sendMessage, subscribeToMessages, initiateSocketConnection, disconnectSocket, subscribeToUserList, markMessagesAsRead, deleteMessage, subscribeToReadReceipts, subscribeToDeleteEvents, getUsersInfo, initiateCall, answerCall, endCall, subscribeToCalls } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import DeleteModal from '../components/DeleteModal';
+import CallNotification from '../components/CallNotification';
 
 export default function ChatRoomScreen({ route, navigation }) {
     const { recipient } = route.params;
@@ -13,6 +14,11 @@ export default function ChatRoomScreen({ route, navigation }) {
     const [recipientProfile, setRecipientProfile] = useState({ nickname: recipient, profile_image: '' });
     const [selectedMessage, setSelectedMessage] = useState(null);
     const [modalVisible, setModalVisible] = useState(false);
+
+    // Call state
+    const [incomingCall, setIncomingCall] = useState(null);
+    const [showCallNotification, setShowCallNotification] = useState(false);
+
     const flatListRef = useRef();
 
     useEffect(() => {
@@ -48,6 +54,34 @@ export default function ChatRoomScreen({ route, navigation }) {
                 setMessages(prev => prev.map(m => m.id === data.id ? { ...m, is_deleted_everyone: true, body: 'This message was deleted' } : m));
             }
         });
+
+        // Subscribe to call events
+        subscribeToCalls(
+            (data) => {
+                console.log('[Socket] Incoming call from:', data.from);
+                setIncomingCall(data);
+                setShowCallNotification(true);
+            },
+            (data) => {
+                console.log('[Socket] Call response:', data.accepted);
+                if (data.accepted) {
+                    navigation.navigate('Call', {
+                        partnerName: recipientProfile.nickname || recipient,
+                        profileImage: recipientProfile.profile_image,
+                        isVideo: data.isVideo, // Use original choice
+                        mode: 'ongoing',
+                        caller: email
+                    });
+                } else {
+                    Alert.alert('Call Declined', `${data.from} declined your call.`);
+                    navigation.goBack(); // Exit the 'calling' screen
+                }
+            },
+            (data) => {
+                console.log('[Socket] Call completed');
+                navigation.navigate('ChatRoom', { recipient }); // Ensure we're back in chat
+            }
+        );
 
         // Load recipient profile
         try {
@@ -151,6 +185,36 @@ export default function ChatRoomScreen({ route, navigation }) {
         }
     };
 
+    // --- CALL HANDLERS ---
+    const handleStartCall = (isVideo = false) => {
+        initiateCall(recipient, email, isVideo);
+        navigation.navigate('Call', {
+            partnerName: recipientProfile.nickname || recipient,
+            profileImage: recipientProfile.profile_image,
+            isVideo,
+            mode: 'calling',
+            caller: email
+        });
+    };
+
+    const handleAcceptCall = () => {
+        answerCall(incomingCall.from, email, true);
+        setShowCallNotification(false);
+        navigation.navigate('Call', {
+            partnerName: incomingCall.from,
+            isVideo: incomingCall.isVideo,
+            mode: 'ongoing',
+            caller: incomingCall.from
+        });
+        setIncomingCall(null);
+    };
+
+    const handleRejectCall = () => {
+        answerCall(incomingCall.from, email, false);
+        setShowCallNotification(false);
+        setIncomingCall(null);
+    };
+
     const renderMessage = ({ item, index }) => {
         const isMe = item.sender === email;
         const prevMsg = index > 0 ? messages[index - 1] : null;
@@ -209,8 +273,8 @@ export default function ChatRoomScreen({ route, navigation }) {
                     {isOnline && <Text style={styles.headerStatus}>online</Text>}
                 </View>
                 <View style={styles.headerIcons}>
-                    <TouchableOpacity style={styles.iconBtn}><Text style={styles.navIcon}>📹</Text></TouchableOpacity>
-                    <TouchableOpacity style={styles.iconBtn}><Text style={styles.navIcon}>📞</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => handleStartCall(true)}><Text style={styles.navIcon}>📹</Text></TouchableOpacity>
+                    <TouchableOpacity style={styles.iconBtn} onPress={() => handleStartCall(false)}><Text style={styles.navIcon}>📞</Text></TouchableOpacity>
                     <TouchableOpacity style={styles.iconBtn}>
                         <View style={styles.menuDot} /><View style={styles.menuDot} /><View style={styles.menuDot} />
                     </TouchableOpacity>
@@ -266,6 +330,14 @@ export default function ChatRoomScreen({ route, navigation }) {
                 onDeleteForMe={() => processDeletion('me')}
                 onDeleteForEveryone={() => processDeletion('everyone')}
                 isMe={selectedMessage?.sender === email}
+            />
+
+            <CallNotification
+                visible={showCallNotification}
+                from={incomingCall?.from}
+                isVideo={incomingCall?.isVideo}
+                onAccept={handleAcceptCall}
+                onReject={handleRejectCall}
             />
         </SafeAreaView>
     );

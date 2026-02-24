@@ -354,6 +354,40 @@ io.on('connection', (socket) => {
         }
     });
 
+    // Call Signaling
+    socket.on('call_init', (data) => {
+        const { to, from, isVideo } = data;
+        console.log(`[Socket] Call Init from ${from} to ${to} (Video: ${isVideo})`);
+        const targetEmail = to.toLowerCase();
+        if (users[targetEmail]) {
+            users[targetEmail].forEach(sid => {
+                io.to(sid).emit('incoming_call', { from, isVideo });
+            });
+        }
+    });
+
+    socket.on('call_ans', (data) => {
+        const { to, from, accepted } = data;
+        console.log(`[Socket] Call Ans from ${from} to ${to}: ${accepted}`);
+        const targetEmail = to.toLowerCase();
+        if (users[targetEmail]) {
+            users[targetEmail].forEach(sid => {
+                io.to(sid).emit('call_response', { from, accepted });
+            });
+        }
+    });
+
+    socket.on('call_end', (data) => {
+        const { to, from } = data;
+        console.log(`[Socket] Call End from ${from} to ${to}`);
+        const targetEmail = to.toLowerCase();
+        if (users[targetEmail]) {
+            users[targetEmail].forEach(sid => {
+                io.to(sid).emit('call_completed', { from });
+            });
+        }
+    });
+
     socket.on('disconnect', () => {
         try {
             for (let email in users) {

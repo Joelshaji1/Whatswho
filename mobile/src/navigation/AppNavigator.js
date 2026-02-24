@@ -6,6 +6,7 @@ import LoginScreen from '../screens/LoginScreen';
 import ChatListScreen from '../screens/ChatListScreen';
 import ChatRoomScreen from '../screens/ChatRoomScreen';
 import ProfileScreen from '../screens/ProfileScreen';
+import CallScreen from '../screens/CallScreen';
 
 const Stack = createStackNavigator();
 
@@ -24,6 +25,7 @@ export default function AppNavigator() {
                 <Stack.Screen name="ChatList" component={ChatListScreen} options={{ title: 'Whatswho' }} />
                 <Stack.Screen name="ChatRoom" component={ChatRoomScreen} options={({ route }) => ({ title: route.params.recipient })} />
                 <Stack.Screen name="Profile" component={ProfileScreen} options={{ title: 'Profile', headerShown: false }} />
+                <Stack.Screen name="Call" component={CallScreen} options={{ headerShown: false }} />
             </Stack.Navigator>
         </NavigationContainer>
     );
