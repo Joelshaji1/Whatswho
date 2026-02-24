@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { StyleSheet, Text, View, FlatList, TouchableOpacity, TextInput, Platform, Image } from 'react-native';
-import api, { subscribeToUserList, initiateSocketConnection } from '../services/api';
+import api, { subscribeToUserList, initiateSocketConnection, subscribeToMessages } from '../services/api';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 export default function ChatListScreen({ navigation }) {
@@ -19,6 +19,7 @@ export default function ChatListScreen({ navigation }) {
         setEmail(normalizedEmail);
 
         // Re-init socket if needed to get online users
+        // Re-init socket if needed to get online users
         initiateSocketConnection(normalizedEmail);
 
         subscribeToUserList((err, users) => {
@@ -26,7 +27,8 @@ export default function ChatListScreen({ navigation }) {
         });
 
         // Subscribe to messages live so list updates immediately
-        api.subscribeToMessages((err, msg) => {
+        subscribeToMessages((err, msg) => {
+            console.log('[Socket] New message received on list screen, refreshing list...');
             loadData(normalizedEmail);
         });
 

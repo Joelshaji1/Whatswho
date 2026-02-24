@@ -137,10 +137,12 @@ app.post('/api/auth/verify-otp', async (req, res) => {
 
 app.get('/api/messages', authenticateToken, async (req, res) => {
     try {
+        console.log(`[DB] Fetching messages for: ${req.user.email}`);
         const result = await pool.query(
             'SELECT * FROM messages WHERE sender = $1 OR recipient = $1 ORDER BY timestamp ASC',
             [req.user.email]
         );
+        console.log(`[DB] Found ${result.rows.length} messages for ${req.user.email}`);
         res.json(result.rows);
     } catch (err) {
         res.status(500).json({ error: err.message });
