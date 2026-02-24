@@ -32,9 +32,28 @@ export const verifyOtp = async (email, code) => {
 };
 
 export const initiateSocketConnection = (email) => {
-    socket = io(API_URL);
-    console.log(`Connecting socket...`);
-    if (socket && email) socket.emit('identify', email);
+    socket = io(API_URL, {
+        transports: ['websocket'], // Force websocket for better reliability on Render
+        reconnection: true
+    });
+
+    console.log(`[Socket] Initiating connection for ${email}...`);
+
+    socket.on('connect', () => {
+        console.log(`[Socket] Connected! ID: ${socket.id}`);
+        if (email) {
+            console.log(`[Socket] Identifying as ${email}...`);
+            socket.emit('identify', email.toLowerCase());
+        }
+    });
+
+    socket.on('connect_error', (err) => {
+        console.error('[Socket] Connection error:', err.message);
+    });
+
+    socket.on('disconnect', (reason) => {
+        console.warn('[Socket] Disconnected:', reason);
+    });
 };
 
 export const disconnectSocket = () => {

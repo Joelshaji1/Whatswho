@@ -60,6 +60,7 @@ export default function ChatRoomScreen({ route, navigation }) {
                 body: inputText,
                 timestamp: new Date().toISOString()
             };
+            console.log(`[UI] Sending message from ${email} to ${recipient}`);
             sendMessage(msgData);
             setMessages(prev => [...prev, msgData]);
             setInputText('');

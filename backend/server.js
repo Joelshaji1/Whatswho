@@ -152,63 +152,93 @@ app.get('/api/messages', authenticateToken, async (req, res) => {
 const users = {}; // Map email -> Array of socket IDs
 
 io.on('connection', (socket) => {
-    console.log('User connected:', socket.id);
+    console.log(`[Socket] New connection: ${socket.id}`);
 
     socket.on('identify', (email) => {
-        const normalizedEmail = email.toLowerCase();
-        if (!users[normalizedEmail]) users[normalizedEmail] = [];
-        if (!users[normalizedEmail].includes(socket.id)) {
-            users[normalizedEmail].push(socket.id);
-        }
-        console.log(`${normalizedEmail} identified with socket ${socket.id} (Total: ${users[normalizedEmail].length})`);
+        try {
+            if (!email) {
+                console.warn(`[Socket] Identify failed: No email provided for socket ${socket.id}`);
+                return;
+            }
+            const normalizedEmail = email.toLowerCase();
+            if (!users[normalizedEmail]) users[normalizedEmail] = [];
+            if (!users[normalizedEmail].includes(socket.id)) {
+                users[normalizedEmail].push(socket.id);
+            }
+            console.log(`[Socket] ${normalizedEmail} identified (Sockets: ${users[normalizedEmail].length})`);
 
-        // Broadcast all unique online emails
-        io.emit('update_user_list', Object.keys(users));
+            io.emit('update_user_list', Object.keys(users));
+        } catch (err) {
+            console.error('[Socket] Identify error:', err);
+        }
     });
 
     socket.on('send_message', async (data) => {
-        const { sender, recipient, body } = data;
-        const normSender = sender.toLowerCase();
-        const normRecipient = recipient.toLowerCase();
-
-        console.log(`Msg: ${normSender} -> ${normRecipient}: ${body.substring(0, 20)}...`);
-
         try {
+            const { sender, recipient, body } = data;
+
+            if (!sender || !recipient || !body) {
+                console.warn('[Socket] Message rejected: Missing data', data);
+                return;
+            }
+
+            const normSender = sender.toLowerCase();
+            const normRecipient = recipient.toLowerCase();
+
+            console.log(`[Socket] Sending: ${normSender} -> ${normRecipient} (${body.length} chars)`);
+
             const result = await pool.query(
                 'INSERT INTO messages (sender, recipient, body) VALUES ($1, $2, $3) RETURNING id, timestamp',
                 [normSender, normRecipient, body]
             );
-            const savedMsg = { ...data, id: result.rows[0].id, timestamp: result.rows[0].timestamp };
 
-            // Send to recipient (all their sockets)
+            const savedMsg = {
+                ...data,
+                id: result.rows[0].id,
+                timestamp: result.rows[0].timestamp,
+                sender: normSender,
+                recipient: normRecipient
+            };
+
+            // Send to recipient
             if (users[normRecipient]) {
+                console.log(`[Socket] Delivering to ${normRecipient} (${users[normRecipient].length} sockets)`);
                 users[normRecipient].forEach(sid => {
                     io.to(sid).emit('receive_message', savedMsg);
                 });
+            } else {
+                console.log(`[Socket] Recipient ${normRecipient} is offline. Message saved to DB.`);
             }
 
-            // Send back to sender (all their sockets except current one maybe, or just all for simplicity)
+            // Sync with sender's other devices
             if (users[normSender]) {
                 users[normSender].forEach(sid => {
-                    if (sid !== socket.id) { // Don't send back to the originating socket to avoid double display in some UI logic
+                    if (sid !== socket.id) {
                         io.to(sid).emit('receive_message', savedMsg);
                     }
                 });
             }
         } catch (err) {
-            console.error('DB error during send_message:', err);
+            console.error('[Socket] send_message error:', err);
         }
     });
 
     socket.on('disconnect', () => {
-        console.log('User disconnected:', socket.id);
-        for (let email in users) {
-            users[email] = users[email].filter(id => id !== socket.id);
-            if (users[email].length === 0) {
-                delete users[email];
+        try {
+            for (let email in users) {
+                const initialCount = users[email].length;
+                users[email] = users[email].filter(id => id !== socket.id);
+                if (users[email].length === 0) {
+                    delete users[email];
+                    console.log(`[Socket] ${email} is now fully offline`);
+                } else if (users[email].length < initialCount) {
+                    console.log(`[Socket] ${email} closed 1 socket (Remaining: ${users[email].length})`);
+                }
             }
+            io.emit('update_user_list', Object.keys(users));
+        } catch (err) {
+            console.error('[Socket] Disconnect error:', err);
         }
-        io.emit('update_user_list', Object.keys(users));
     });
 });
 
