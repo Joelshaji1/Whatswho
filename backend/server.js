@@ -134,7 +134,45 @@ app.post('/api/auth/verify-otp', async (req, res) => {
     }
 });
 
-// --- MESSAGES API ---
+// Helper to handle message saving and broadcasting
+async function handleOutgoingMessage(data, socketSource = null) {
+    const { sender, recipient, body } = data;
+    if (!sender || !recipient || !body) throw new Error('Missing message fields');
+
+    const normSender = sender.toLowerCase();
+    const normRecipient = recipient.toLowerCase();
+
+    const result = await pool.query(
+        'INSERT INTO messages (sender, recipient, body) VALUES ($1, $2, $3) RETURNING id, timestamp',
+        [normSender, normRecipient, body]
+    );
+
+    const savedMsg = {
+        ...data,
+        id: result.rows[0].id,
+        timestamp: result.rows[0].timestamp,
+        sender: normSender,
+        recipient: normRecipient
+    };
+
+    // Broadcast to recipient
+    if (users[normRecipient]) {
+        users[normRecipient].forEach(sid => {
+            io.to(sid).emit('receive_message', savedMsg);
+        });
+    }
+
+    // Sync with sender's other sockets (excluding the source if it came from a socket)
+    if (users[normSender]) {
+        users[normSender].forEach(sid => {
+            if (sid !== socketSource) {
+                io.to(sid).emit('receive_message', savedMsg);
+            }
+        });
+    }
+
+    return savedMsg;
+}
 
 app.get('/api/messages', authenticateToken, async (req, res) => {
     try {
@@ -143,9 +181,22 @@ app.get('/api/messages', authenticateToken, async (req, res) => {
             'SELECT * FROM messages WHERE LOWER(sender) = $1 OR LOWER(recipient) = $1 ORDER BY timestamp ASC',
             [normalizedEmail]
         );
-        console.log(`[DB] Found ${result.rows.length} messages for ${req.user.email}`);
         res.json(result.rows);
     } catch (err) {
+        res.status(500).json({ error: err.message });
+    }
+});
+
+app.post('/api/messages', authenticateToken, async (req, res) => {
+    try {
+        // Ensure sender matches the token for security
+        if (req.body.sender.toLowerCase() !== req.user.email.toLowerCase()) {
+            return res.status(403).json({ error: 'Sender mismatch' });
+        }
+        const savedMsg = await handleOutgoingMessage(req.body);
+        res.json(savedMsg);
+    } catch (err) {
+        console.error('[API] Message send error:', err);
         res.status(500).json({ error: err.message });
     }
 });
@@ -178,49 +229,8 @@ io.on('connection', (socket) => {
 
     socket.on('send_message', async (data) => {
         try {
-            const { sender, recipient, body } = data;
-
-            if (!sender || !recipient || !body) {
-                console.warn('[Socket] Message rejected: Missing data', data);
-                return;
-            }
-
-            const normSender = sender.toLowerCase();
-            const normRecipient = recipient.toLowerCase();
-
-            console.log(`[Socket] Sending: ${normSender} -> ${normRecipient} (${body.length} chars)`);
-
-            const result = await pool.query(
-                'INSERT INTO messages (sender, recipient, body) VALUES ($1, $2, $3) RETURNING id, timestamp',
-                [normSender, normRecipient, body]
-            );
-
-            const savedMsg = {
-                ...data,
-                id: result.rows[0].id,
-                timestamp: result.rows[0].timestamp,
-                sender: normSender,
-                recipient: normRecipient
-            };
-
-            // Send to recipient
-            if (users[normRecipient]) {
-                console.log(`[Socket] Delivering to ${normRecipient} (${users[normRecipient].length} sockets)`);
-                users[normRecipient].forEach(sid => {
-                    io.to(sid).emit('receive_message', savedMsg);
-                });
-            } else {
-                console.log(`[Socket] Recipient ${normRecipient} is offline. Message saved to DB.`);
-            }
-
-            // Sync with sender's other devices
-            if (users[normSender]) {
-                users[normSender].forEach(sid => {
-                    if (sid !== socket.id) {
-                        io.to(sid).emit('receive_message', savedMsg);
-                    }
-                });
-            }
+            console.log(`[Socket] Received message from ${socket.id}`);
+            await handleOutgoingMessage(data, socket.id);
         } catch (err) {
             console.error('[Socket] send_message error:', err);
         }

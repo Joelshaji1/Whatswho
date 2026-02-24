@@ -32,12 +32,25 @@ export const verifyOtp = async (email, code) => {
 };
 
 export const initiateSocketConnection = (email) => {
+    if (socket?.connected) {
+        console.log('[Socket] Already connected. Re-identifying...');
+        if (email) socket.emit('identify', email.toLowerCase());
+        return;
+    }
+
+    if (socket) {
+        console.log('[Socket] Existing socket found but not connected. Disconnecting old one...');
+        socket.disconnect();
+    }
+
     socket = io(API_URL, {
         transports: ['websocket'], // Force websocket for better reliability on Render
-        reconnection: true
+        reconnection: true,
+        reconnectionAttempts: 5,
+        timeout: 10000
     });
 
-    console.log(`[Socket] Initiating connection for ${email}...`);
+    console.log(`[Socket] Initiating new connection for ${email}...`);
 
     socket.on('connect', () => {
         console.log(`[Socket] Connected! ID: ${socket.id}`);
@@ -51,34 +64,52 @@ export const initiateSocketConnection = (email) => {
         console.error('[Socket] Connection error:', err.message);
     });
 
-    socket.on('disconnect', (reason) => {
-        console.warn('[Socket] Disconnected:', reason);
+    socket.on('reconnect_attempt', () => {
+        console.log('[Socket] Attempting to reconnect...');
     });
 };
 
 export const disconnectSocket = () => {
-    console.log('Disconnecting socket...');
-    if (socket) socket.disconnect();
+    if (socket) {
+        console.log('Disconnecting socket...');
+        socket.disconnect();
+        socket = null;
+    }
 };
 
 export const subscribeToMessages = (cb) => {
     if (!socket) return;
+    // Remove existing listeners to avoid duplicates if called multiple times
+    socket.off('receive_message');
     socket.on('receive_message', (msg) => {
-        console.log('Websocket message received!');
+        console.log('[Socket] Message received!');
         cb(null, msg);
     });
 };
 
 export const subscribeToUserList = (cb) => {
     if (!socket) return;
+    socket.off('update_user_list');
     socket.on('update_user_list', (users) => {
-        console.log('Online users updated:', users);
+        console.log('[Socket] Online users updated:', users);
         cb(null, users);
     });
 };
 
-export const sendMessage = (data) => {
-    if (socket) socket.emit('send_message', data);
+export const sendMessage = async (data) => {
+    try {
+        // Use REST for persistence (more reliable for saving)
+        const response = await api.post('/api/messages', data);
+        console.log('[API] Message saved via REST');
+        return response.data;
+    } catch (err) {
+        console.error('[API] Send error:', err.message);
+        // Fallback to socket if REST fails? Or just throw
+        if (socket?.connected) {
+            socket.emit('send_message', data);
+        }
+        throw err;
+    }
 };
 
 export default api;

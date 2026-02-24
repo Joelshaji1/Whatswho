@@ -47,12 +47,16 @@ export default function ChatRoomScreen({ route, navigation }) {
 
             if ((msgSender === normalizedRecipient && msgRecipient === normalizedMyEmail) ||
                 (msgSender === normalizedMyEmail && msgRecipient === normalizedRecipient)) {
-                setMessages(prev => [...prev, msg]);
+                setMessages(prev => {
+                    // avoid duplicates
+                    if (prev.find(m => m.id === msg.id)) return prev;
+                    return [...prev, msg];
+                });
             }
         });
     };
 
-    const handleSend = () => {
+    const handleSend = async () => {
         if (inputText.trim()) {
             const msgData = {
                 sender: email,
@@ -60,10 +64,24 @@ export default function ChatRoomScreen({ route, navigation }) {
                 body: inputText,
                 timestamp: new Date().toISOString()
             };
-            console.log(`[UI] Sending message from ${email} to ${recipient}`);
-            sendMessage(msgData);
-            setMessages(prev => [...prev, msgData]);
+
+            // Add a temporary message to UI for instant feedback
+            const tempId = 'temp-' + Date.now();
+            const tempMsg = { ...msgData, id: tempId };
+            setMessages(prev => [...prev, tempMsg]);
             setInputText('');
+
+            try {
+                console.log(`[UI] Sending message via REST...`);
+                const savedMsg = await sendMessage(msgData);
+                // Replace temp message with the real one from server
+                setMessages(prev => prev.map(m => m.id === tempId ? savedMsg : m));
+            } catch (error) {
+                console.error('[UI] Send failed:', error);
+                // Mark temp message as failed or remove it
+                setMessages(prev => prev.filter(m => m.id !== tempId));
+                alert('Message failed to send. Please check your connection.');
+            }
         }
     };
 
