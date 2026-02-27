@@ -1,0 +1,39 @@
+﻿Initialized native services in: C:\Users\joels\.gradle\native
+Initialized jansi services in: C:\Users\joels\.gradle\native
+Found daemon DaemonInfo{pid=10496, address=[3c1eb675-5631-4862-9a28-6dadcba377ea port:55586, addresses:[/127.0.0.1]], state=Idle, lastBusy=1772033468425, context=DefaultDaemonContext[uid=65f20f40-d30f-43d4-bfef-09d555a8bb83,javaHome=C:\Users\joels\.jdks\temurin-24.0.2,javaVersion=24,javaVendor=Eclipse Adoptium,daemonRegistryDir=C:\Users\joels\.gradle\daemon,pid=10496,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-Xmx2048m,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]} however its context does not match the desired criteria.
+JVM is incompatible.
+Wanted: DaemonRequestContext{jvmCriteria=C:\Program Files\Java\jre1.8.0_481 (no JDK specified, using current Java home), daemonOpts=[-Xmx2048m, -Dfile.encoding=UTF-8, -Duser.country=US, -Duser.language=en, -Duser.variant], applyInstrumentationAgent=true, nativeServicesMode=ENABLED, priority=NORMAL}
+Actual: DefaultDaemonContext[uid=65f20f40-d30f-43d4-bfef-09d555a8bb83,javaHome=C:\Users\joels\.jdks\temurin-24.0.2,javaVersion=24,javaVendor=Eclipse Adoptium,daemonRegistryDir=C:\Users\joels\.gradle\daemon,pid=10496,idleTimeout=10800000,priority=NORMAL,applyInstrumentationAgent=true,nativeServicesMode=ENABLED,daemonOpts=-Xmx2048m,-Dfile.encoding=UTF-8,-Duser.country=US,-Duser.language=en,-Duser.variant]
+
+  Looking for a different daemon...
+Removing 0 daemon stop events from registry
+Previous Daemon (17080) stopped at Wed Feb 25 20:06:13 IST 2026 stop command received
+Previous Daemon (3680) stopped at Wed Feb 25 20:09:28 IST 2026 after being idle for 1 minutes and not recently used and to reclaim system virtual memory
+Previous Daemon (9660) stopped at Wed Feb 25 20:14:00 IST 2026 stop command received
+Previous Daemon (19780) stopped at Wed Feb 25 20:15:48 IST 2026 stop command received
+Previous Daemon (14188) stopped at Wed Feb 25 20:48:09 IST 2026 other compatible daemons were started and after being idle for 0 minutes and not recently used
+Previous Daemon (16824) stopped at Wed Feb 25 20:57:20 IST 2026 stop command received
+Previous Daemon (10552) stopped at Wed Feb 25 20:06:13 IST 2026 by user or operating system
+Previous Daemon (6116) stopped at Wed Feb 25 20:06:13 IST 2026 by user or operating system
+Previous Daemon (20440) stopped at Wed Feb 25 20:06:13 IST 2026 by user or operating system
+Previous Daemon (4500) stopped at Wed Feb 25 20:20:59 IST 2026 by user or operating system
+Previous Daemon (22332) stopped at Wed Feb 25 20:27:55 IST 2026 by user or operating system
+Previous Daemon (19248) stopped at Wed Feb 25 20:57:20 IST 2026 by user or operating system
+Starting a Gradle Daemon, 1 incompatible and 12 stopped Daemons could not be reused, use --status for details
+./gradlew : 
+At line:1 char:1
++ ./gradlew :app:compileDebugKotlin --info > build_log.txt 2>&1
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Gradle requires JVM 17 or later to run. Your build is currently configured to use JVM 8.
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --debug option to get more log output.
+> Run with --scan to generate a Build Scan (Powered by Develocity).
+> Get more help at https://help.gradle.org.

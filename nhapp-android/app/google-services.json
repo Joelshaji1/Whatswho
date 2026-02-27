@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "771082335176",
+    "project_id": "nhapp-f5cd8",
+    "storage_bucket": "nhapp-f5cd8.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:771082335176:android:458db8a788cdf1082fc6fd",
+        "android_client_info": {
+          "package_name": "com.nhapp"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyAVpL0Jfr9bIXMmiz5UsMLGR95YfUJNTUw"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}

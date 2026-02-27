@@ -1,0 +1,7 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.NHAPP" parent="android:Theme.Material.Light.NoActionBar">
+        <item name="android:colorPrimary">@color/primary_green</item>
+        <item name="android:statusBarColor">@color/primary_green</item>
+    </style>
+</resources>

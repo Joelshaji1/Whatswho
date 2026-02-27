@@ -1,0 +1,76 @@
+﻿> Task :app:checkKotlinGradlePluginConfigurationErrors SKIPPED
+> Task :app:preBuild UP-TO-DATE
+> Task :app:preDebugBuild UP-TO-DATE
+> Task :app:checkDebugAarMetadata UP-TO-DATE
+> Task :app:generateDebugResValues UP-TO-DATE
+> Task :app:processDebugGoogleServices UP-TO-DATE
+> Task :app:mapDebugSourceSetPaths UP-TO-DATE
+> Task :app:generateDebugResources UP-TO-DATE
+> Task :app:mergeDebugResources UP-TO-DATE
+> Task :app:packageDebugResources UP-TO-DATE
+> Task :app:parseDebugLocalResources UP-TO-DATE
+> Task :app:createDebugCompatibleScreenManifests UP-TO-DATE
+> Task :app:extractDeepLinksDebug UP-TO-DATE
+> Task :app:processDebugMainManifest
+> Task :app:processDebugManifest
+> Task :app:processDebugManifestForPackage
+> Task :app:processDebugResources
+
+> Task :app:compileDebugKotlin FAILED
+./gradlew : e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/MainA
+ctivity.kt:14:38 Unresolved reference 'gotrue'.
+At line:1 char:57
++ ... in-24.0.2"; ./gradlew :app:compileDebugKotlin > build_result.txt 2>&1 ...
++                 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (e: file:///C:/U...rence 'gotrue'.:String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/MainActivity.kt:2
+6:46 Unresolved reference 'gotrue'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/MainActivity.kt:2
+7:22 Cannot infer type for this parameter. Please specify it explicitly.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/MainActivity.kt:2
+7:28 Unresolved reference 'user'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/MainActivity.kt:3
+8:55 Unresolved reference 'gotrue'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/MainActivity.kt:4
+9:55 Unresolved reference 'gotrue'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/data/SupabaseSetu
+p.kt:4:38 Unresolved reference 'GoTrue'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/data/SupabaseSetu
+p.kt:16:17 Unresolved reference 'GoTrue'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/data/repository/A
+uthRepository.kt:4:38 Unresolved reference 'gotrue'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/data/repository/A
+uthRepository.kt:5:38 Unresolved reference 'otp'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/data/repository/A
+uthRepository.kt:10:47 Unresolved reference 'gotrue'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/data/repository/A
+uthRepository.kt:27:24 Unresolved reference 'OtpType'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/data/repository/C
+hatRepository.kt:42:44 Unresolved reference 'realtime'.
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/data/repository/C
+hatRepository.kt:43:24 None of the following candidates is applicable:
+fun <reified Data : Any> RealtimeChannel.postgresListDataFlow(schema: String = ..., table: String, filter: 
+FilterOperation? = ..., primaryKey: PrimaryKey<Data>): Flow<List<Data>>
+fun <reified Data : Any, Value> RealtimeChannel.postgresListDataFlow(schema: String = ..., table: String, filter: 
+FilterOperation? = ..., primaryKey: KProperty1<Data, Value>): Flow<List<Data>>
+e: file:///C:/Users/joels/OneDrive/Desktop/WhatsApp%20Clone/nhapp-android/app/src/main/java/com/nhapp/data/repository/C
+hatRepository.kt:48:17 Unresolved reference 'eq'.
+
+FAILURE: Build failed with an exception.
+
+* What went wrong:
+Execution failed for task ':app:compileDebugKotlin'.
+> A failure occurred while executing 
+org.jetbrains.kotlin.compilerRunner.GradleCompilerRunnerWithWorkers$GradleKotlinCompilerWorkAction
+   > Compilation error. See log for more details
+
+* Try:
+> Run with --stacktrace option to get the stack trace.
+> Run with --info or --debug option to get more log output.
+> Run with --scan to generate a Build Scan (Powered by Develocity).
+> Get more help at https://help.gradle.org.
+
+BUILD FAILED in 2s
+15 actionable tasks: 5 executed, 10 up-to-date
